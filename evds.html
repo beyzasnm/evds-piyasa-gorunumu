@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f6f5f4">
+<title>EVDS Piyasa Görünümü</title>
+<style>
+  :root { font-family: "Segoe UI", system-ui, sans-serif; color: #212631; background: #f6f5f4; font-variant-numeric: tabular-nums; --muted: #5e6673; --rule: #e3e0e0; --accent: #852546; }
+  * { box-sizing: border-box; }
+  body { margin: 0; border-top: 3px solid var(--accent); }
+  .shell { width: min(1140px, calc(100% - 56px)); margin-inline: auto; }
+  header { background: #fff; border-bottom: 1px solid var(--rule); }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  .hero { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding: 37px 0 25px; }
+  h1 { font-size: clamp(1.8rem, 4vw, 2.7rem); letter-spacing: -.055em; margin: 0 0 8px; line-height: 1.09; }
+  p { margin: 0; }
+  .intro, .last-check, .section-note, .period, footer { color: var(--muted); font-size: .86rem; }
+  .last-check { text-align: right; line-height: 1.55; white-space: nowrap; }
+  .last-check strong { color: #343844; display: block; font-weight: 650; }
+  .status { padding: 10px 14px; border-left: 2px solid #9a6d30; background: #fbf4e8; color: #62491d; font-size: .85rem; margin-bottom: 15px; }
+  .section { margin: 0 0 24px; }
+  .section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 13px; margin-bottom: 9px; }
+  .section-head h2 { font-size: .96rem; margin: 0; }
+  .section-note { margin-right: auto; }
+  .range { display: flex; gap: 3px; }
+  button { background: transparent; border: 1px solid transparent; color: var(--muted); border-radius: 4px; padding: 5px 9px; font: inherit; font-size: .76rem; cursor: pointer; }
+  button:hover { border-color: #d9c6ce; }
+  button[aria-pressed=true] { background: #f0e4e9; border-color: #ead6de; color: #721d3a; font-weight: 650; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+  article { background: #fff; border: 1px solid var(--rule); border-radius: 6px; padding: 16px 17px 12px; min-width: 0; }
+  .card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  h3 { font-size: .94rem; margin: 0; }
+  .period { white-space: nowrap; font-size: .76rem; }
+  .readout { display: flex; align-items: baseline; gap: 7px; margin-top: 6px; }
+  .value { font-size: clamp(1.52rem, 3vw, 2.06rem); font-weight: 650; letter-spacing: -.045em; }
+  .unit { color: var(--muted); font-size: .83rem; }
+  .chart { position: relative; margin: 5px 0 0; }
+  canvas { width: 100%; height: 140px; display: block; touch-action: pan-y; }
+  .tooltip { position: absolute; z-index: 1; top: 6px; max-width: 148px; pointer-events: none; padding: 5px 8px; border-radius: 4px; background: #28232b; color: white; font-size: .73rem; line-height: 1.5; white-space: nowrap; }
+  .meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 10px; border-top: 1px solid #efeded; margin-top: 6px; padding-top: 9px; font-size: .73rem; color: var(--muted); }
+  footer { border-top: 1px solid var(--rule); margin-bottom: 20px; padding-top: 11px; line-height: 1.55; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @media (max-width: 690px) {
+    .shell { width: calc(100% - 30px); }
+    .hero { align-items: start; flex-direction: column; padding-top: 25px; gap: 9px; }
+    .last-check { text-align: left; }
+    .last-check strong { display: inline; margin-right: 5px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+.site-nav{display:flex;align-items:center;flex-wrap:wrap;gap:4px 20px;max-width:1280px;min-height:61px;margin:auto;padding:6px 28px;font-size:.88rem}
+.site-nav strong{margin-right:auto;color:#252029}
+@media(max-width:630px){.site-nav{padding-inline:15px}}
+@media(max-width:440px){.site-nav{row-gap:1px}.site-nav strong{padding-top:4px}</style>
+</head>
+<body>
+<header>
+  <div class="site-nav"><strong>Hazine Satış</strong></div>
+</header>
+<main class="shell">
+  <div class="hero">
+    <div>
+      <h1>EVDS Piyasa Görünümü</h1>
+      <p class="intro">Kur, likidite, rezerv ve yabancı tahvil akımı</p>
+    </div>
+    <p class="last-check"><strong>Veri kontrolü</strong><time id="checked"></time></p>
+  </div>
+  <p class="status" id="status" role="status" hidden></p>
+  <section class="section" aria-labelledby="daily">
+    <div class="section-head">
+      <h2 id="daily">Günlük göstergeler</h2><span class="section-note">İş günü gözlemleri</span>
+      <div class="range" id="daily-range" role="group" aria-label="Günlük grafik aralığı"></div>
+    </div>
+    <div class="grid" id="daily-charts"></div>
+  </section>
+  <section class="section" aria-labelledby="weekly">
+    <div class="section-head">
+      <h2 id="weekly">Haftalık göstergeler</h2><span class="section-note">Cuma kapanışı</span>
+      <div class="range" id="weekly-range" role="group" aria-label="Haftalık grafik aralığı"></div>
+    </div>
+    <div class="grid" id="weekly-charts"></div>
+  </section>
+  <footer>
+    <a href="https://evds3.tcmb.gov.tr/">Veri kaynağı: TCMB EVDS</a>
+    <p id="source-note" hidden>İlk veri kaydı EVDS MCP üzerinden alındı. TCMB yalnızca veriyi sağlar. Yapay zekâ desteğiyle hazırlanan gösterim hatalı, eksik veya yanıltıcı olabilir.</p>
+  </footer>
+</main>
+<template id="card">
+  <article>
+    <div class="card-top"><h3></h3><time class="period"></time></div>
+    <p class="readout"><span class="value"></span><span class="unit"></span></p>
+    <div class="chart"><canvas tabindex="0"></canvas><div class="tooltip" hidden></div></div>
+    <div class="meta"><span class="detail"></span><span class="series"></span></div>
+  </article>
+</template>
+<script type="application/json" id="payload">__EVDS_PAYLOAD__</script>
+<script>
+  const snapshot = JSON.parse(document.querySelector('#payload').textContent);
+  const dayLength = 86400000;
+  const formatDate = (date, options) => new Intl.DateTimeFormat('tr-TR', { timeZone: 'UTC', ...options }).format(new Date(date));
+  const longDate = date => formatDate(date, { day: 'numeric', month: 'long', year: 'numeric' });
+  const shortDate = date => formatDate(date, { day: 'numeric', month: 'short' });
+  const number = (value, digits) => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: digits }).format(value);
+  const checked = document.querySelector('#checked');
+  checked.dateTime = snapshot.checked;
+  checked.textContent = snapshot.source === 'api'
+    ? new Intl.DateTimeFormat('tr-TR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Istanbul' }).format(new Date(snapshot.checked)) + ' TSİ'
+    : longDate(snapshot.checked);
+  document.querySelector('#source-note').hidden = snapshot.source !== 'mcp';
+  const statusText = {
+    setup: 'Otomatik EVDS güncellemesi henüz etkin değil. Son kayıt gösteriliyor.',
+    cached: 'EVDS’ye son erişim tamamlanamadı. Son başarılı kayıt gösteriliyor.'
+  };
+  if (statusText[snapshot.status]) {
+    const status = document.querySelector('#status');
+    status.textContent = statusText[snapshot.status];
+    status.hidden = false;
+  }
+
+  function makeChart(container, config) {
+    const card = document.querySelector('#card').content.firstElementChild.cloneNode(true);
+    const points = snapshot.series[config.code];
+    const [latestDay, latest] = points.at(-1);
+    const canvas = card.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    const tip = card.querySelector('.tooltip');
+    card.querySelector('h3').textContent = config.title;
+    const period = card.querySelector('.period');
+    period.dateTime = latestDay;
+    period.textContent = longDate(latestDay);
+    card.querySelector('.value').textContent = number(latest, config.digits);
+    card.querySelector('.unit').textContent = config.unit;
+    card.querySelector('.detail').textContent = config.detail;
+    card.querySelector('.series').textContent = config.code;
+    canvas.setAttribute('aria-label', config.title + ' zaman serisi. Gözlemler için sol ve sağ ok tuşlarını kullanın.');
+    container.append(card);
+    let shown = points;
+    let markers = [];
+    let active = -1;
+    let top = 0;
+    let bottom = 0;
+
+    function draw() {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (!width || !height) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.scale(dpr, dpr);
+      const left = 65;
+      const right = width - 10;
+      top = 11;
+      bottom = height - 24;
+      const values = shown.map(([, value]) => value);
+      const min = Math.min(...values, ...(config.bars ? [0] : []));
+      const max = Math.max(...values, ...(config.bars ? [0] : []));
+      const pad = (max - min || Math.abs(max) || 1) * .08;
+      const low = min - pad;
+      const high = max + pad;
+      const y = value => bottom - (value - low) / (high - low) * (bottom - top);
+      const first = Date.parse(shown[0][0]);
+      const span = Date.parse(shown.at(-1)[0]) - first || dayLength;
+      const inset = config.bars ? 5 : 0;
+      markers = shown.map(([day, value]) => [left + inset + (Date.parse(day) - first) / span * (right - left - inset * 2), y(value)]);
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.fillStyle = '#626a77';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < 4; i++) {
+        const value = high - (high - low) * i / 3;
+        const row = y(value);
+        ctx.strokeStyle = '#eae7e9';
+        ctx.beginPath(); ctx.moveTo(left, row); ctx.lineTo(right, row); ctx.stroke();
+        ctx.fillText(number(value, config.digits === 4 ? 2 : 0), left - 7, row);
+      }
+      if (low < 0 && high > 0) {
+        ctx.strokeStyle = '#bbb3b9';
+        ctx.beginPath(); ctx.moveTo(left, y(0)); ctx.lineTo(right, y(0)); ctx.stroke();
+      }
+      if (config.bars) {
+        const barWidth = Math.max(2, Math.min(12, (right - left) / shown.length * .6));
+        markers.forEach(([x, row], index) => {
+          ctx.fillStyle = shown[index][1] < 0 ? '#94526b' : '#40746d';
+          ctx.fillRect(x - barWidth / 2, Math.min(row, y(0)), barWidth, Math.max(1, Math.abs(row - y(0))));
+        });
+      } else {
+        ctx.strokeStyle = config.color;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        markers.forEach(([x, row], index) => index ? ctx.lineTo(x, row) : ctx.moveTo(x, row));
+        ctx.stroke();
+        const [x, row] = markers.at(-1);
+        ctx.fillStyle = config.color;
+        ctx.beginPath(); ctx.arc(x, row, 2.8, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#626a77';
+      ctx.textBaseline = 'alphabetic';
+      const ticks = [...new Set([0, Math.floor((shown.length - 1) / 2), shown.length - 1])];
+      ticks.forEach((index, i) => {
+        ctx.textAlign = i === 0 ? 'left' : i === ticks.length - 1 ? 'right' : 'center';
+        ctx.fillText(shortDate(shown[index][0]), markers[index][0], height - 5);
+      });
+      if (active >= 0) {
+        const [x, row] = markers[active];
+        ctx.strokeStyle = '#82727b';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+        ctx.fillStyle = '#852546';
+        ctx.beginPath(); ctx.arc(x, row, 3, 0, Math.PI * 2); ctx.fill();
+        const [day, value] = shown[active];
+        tip.textContent = shortDate(day) + ' · ' + number(value, config.digits);
+        tip.hidden = false;
+        tip.style.left = Math.min(x + 8, width - tip.offsetWidth) + 'px';
+      } else {
+        tip.hidden = true;
+      }
+    }
+
+    canvas.addEventListener('pointermove', event => {
+      if (!markers.length) return;
+      const position = event.clientX - canvas.getBoundingClientRect().left;
+      active = markers.reduce((best, [x], i) => Math.abs(x - position) < Math.abs(markers[best][0] - position) ? i : best, 0);
+      draw();
+    });
+    canvas.addEventListener('pointerleave', () => { active = -1; draw(); });
+    canvas.addEventListener('blur', () => { active = -1; draw(); });
+    canvas.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      active = active < 0 ? shown.length - 1 : Math.max(0, Math.min(shown.length - 1, active + (event.key === 'ArrowLeft' ? -1 : 1)));
+      draw();
+    });
+    new ResizeObserver(draw).observe(canvas);
+    return days => {
+      const start = Date.parse(latestDay) - days * dayLength;
+      shown = points.filter(([day]) => Date.parse(day) >= start);
+      active = -1;
+      draw();
+    };
+  }
+
+  function setupGroup(name, configs, ranges, initial) {
+    const container = document.querySelector('#' + name + '-charts');
+    const menu = document.querySelector('#' + name + '-range');
+    const charts = configs.map(config => makeChart(container, config));
+    const select = days => {
+      [...menu.children].forEach(button => button.setAttribute('aria-pressed', Number(button.value) === days));
+      charts.forEach(setRange => setRange(days));
+    };
+    for (const [label, days] of ranges) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.value = days;
+      button.textContent = label;
+      button.addEventListener('click', () => select(days));
+      menu.append(button);
+    }
+    select(initial);
+  }
+
+  setupGroup('daily', [
+    { code: 'TP.DK.USD.A.YTL', title: 'USD/TL alış kuru', unit: 'TL', digits: 4, color: '#852546', detail: 'TCMB gösterge kuru' },
+    { code: 'TP.APIFON3', title: 'TCMB net fonlaması', unit: 'mn TL', digits: 1, color: '#356761', detail: 'TCMB’nin yayımladığı net fonlama' }
+  ], [['1 ay', 31], ['3 ay', 92], ['6 ay', 183]], 92);
+  setupGroup('weekly', [
+    { code: 'TP.AB.TOPLAM', title: 'TCMB toplam rezervi', unit: 'mn USD', digits: 1, color: '#852546', detail: 'Altın ve brüt döviz rezervi toplamı' },
+    { code: 'TP.MKNETHAR.M8', title: 'Yabancı DİBS net akımı', unit: 'mn USD', digits: 2, bars: true, detail: 'Yurt dışı yerleşikler · Kesin alım' }
+  ], [['13 hafta', 84], ['26 hafta', 175], ['52 hafta', 357]], 175);
+</script>
+</body>
+</html>

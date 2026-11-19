@@ -1,0 +1,64 @@
+name: EVDS Piyasa Görünümü
+on:
+  push:
+    branches: [main]
+    paths:
+      - build_evds.py
+      - evds.html
+      - archive/evds.json
+      - .github/workflows/evds.yml
+  schedule:
+    - cron: '37 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: evds-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: EVDS verisini al ve panoyu oluştur
+        env:
+          EVDS_API_KEY: ${{ secrets.EVDS_API_KEY }}
+        run: python build_evds.py
+      - name: Doğrulanmış EVDS gözlemlerini kaydet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add archive/evds.json
+          if ! git diff --cached --quiet; then
+            git commit -m "EVDS gözlemlerini güncelle"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  publish:
+    needs: dashboard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
