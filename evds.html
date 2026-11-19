@@ -23,7 +23,7 @@
   .section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 13px; margin-bottom: 9px; }
   .section-head h2 { font-size: .96rem; margin: 0; }
   .section-note { margin-right: auto; }
-  .range { display: flex; gap: 3px; }
+  .range { display: flex; flex-wrap: wrap; gap: 3px; }
   button { background: transparent; border: 1px solid transparent; color: var(--muted); border-radius: 4px; padding: 5px 9px; font: inherit; font-size: .76rem; cursor: pointer; }
   button:hover { border-color: #d9c6ce; }
   button[aria-pressed=true] { background: #f0e4e9; border-color: #ead6de; color: #721d3a; font-weight: 650; }
@@ -37,7 +37,7 @@
   .unit { color: var(--muted); font-size: .83rem; }
   .chart { position: relative; margin: 5px 0 0; }
   canvas { width: 100%; height: 140px; display: block; touch-action: pan-y; }
-  .tooltip { position: absolute; z-index: 1; top: 6px; max-width: 148px; pointer-events: none; padding: 5px 8px; border-radius: 4px; background: #28232b; color: white; font-size: .73rem; line-height: 1.5; white-space: nowrap; }
+  .tooltip { position: absolute; z-index: 1; top: 6px; pointer-events: none; padding: 5px 8px; border-radius: 4px; background: #28232b; color: white; font-size: .73rem; line-height: 1.5; white-space: nowrap; }
   .meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 10px; border-top: 1px solid #efeded; margin-top: 6px; padding-top: 9px; font-size: .73rem; color: var(--muted); }
   footer { border-top: 1px solid var(--rule); margin-bottom: 20px; padding-top: 11px; line-height: 1.55; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -135,6 +135,7 @@
     canvas.setAttribute('aria-label', config.title + ' zaman serisi. Gözlemler için sol ve sağ ok tuşlarını kullanın.');
     container.append(card);
     let shown = points;
+    let showYear = false;
     let markers = [];
     let active = -1;
     let top = 0;
@@ -199,7 +200,9 @@
       const ticks = [...new Set([0, Math.floor((shown.length - 1) / 2), shown.length - 1])];
       ticks.forEach((index, i) => {
         ctx.textAlign = i === 0 ? 'left' : i === ticks.length - 1 ? 'right' : 'center';
-        ctx.fillText(shortDate(shown[index][0]), markers[index][0], height - 5);
+        const day = shown[index][0];
+        const label = showYear ? formatDate(day, { month: 'short', year: '2-digit' }) : shortDate(day);
+        ctx.fillText(label, markers[index][0], height - 5);
       });
       if (active >= 0) {
         const [x, row] = markers[active];
@@ -209,7 +212,7 @@
         ctx.fillStyle = '#852546';
         ctx.beginPath(); ctx.arc(x, row, 3, 0, Math.PI * 2); ctx.fill();
         const [day, value] = shown[active];
-        tip.textContent = shortDate(day) + ' · ' + number(value, config.digits);
+        tip.textContent = longDate(day) + ' · ' + number(value, config.digits);
         tip.hidden = false;
         tip.style.left = Math.min(x + 8, width - tip.offsetWidth) + 'px';
       } else {
@@ -234,7 +237,8 @@
     new ResizeObserver(draw).observe(canvas);
     return days => {
       const start = Date.parse(latestDay) - days * dayLength;
-      shown = points.filter(([day]) => Date.parse(day) >= start);
+      shown = days ? points.filter(([day]) => Date.parse(day) >= start) : points;
+      showYear = Date.parse(shown.at(-1)[0]) - Date.parse(shown[0][0]) > 364 * dayLength;
       active = -1;
       draw();
     };
@@ -262,11 +266,11 @@
   setupGroup('daily', [
     { code: 'TP.DK.USD.A.YTL', title: 'USD/TL alış kuru', unit: 'TL', digits: 4, color: '#852546', detail: 'TCMB gösterge kuru' },
     { code: 'TP.APIFON3', title: 'TCMB net fonlaması', unit: 'mn TL', digits: 1, color: '#356761', detail: 'TCMB’nin yayımladığı net fonlama' }
-  ], [['1 ay', 31], ['3 ay', 92], ['6 ay', 183]], 92);
+  ], [['1 ay', 31], ['3 ay', 92], ['6 ay', 183], ['1 yıl', 365], ['3 yıl', 1095], ['Tümü', 0]], 92);
   setupGroup('weekly', [
     { code: 'TP.AB.TOPLAM', title: 'TCMB toplam rezervi', unit: 'mn USD', digits: 1, color: '#852546', detail: 'Altın ve brüt döviz rezervi toplamı' },
     { code: 'TP.MKNETHAR.M8', title: 'Yabancı DİBS net akımı', unit: 'mn USD', digits: 2, bars: true, detail: 'Yurt dışı yerleşikler · Kesin alım' }
-  ], [['13 hafta', 84], ['26 hafta', 175], ['52 hafta', 357]], 175);
+  ], [['13 hafta', 84], ['26 hafta', 175], ['52 hafta', 357], ['3 yıl', 1095], ['Tümü', 0]], 175);
 </script>
 </body>
 </html>

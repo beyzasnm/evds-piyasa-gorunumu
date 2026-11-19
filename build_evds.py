@@ -15,6 +15,8 @@ ARCHIVE = ROOT / "archive/evds.json"
 TEMPLATE = ROOT / "evds.html"
 OUTPUT = ROOT / "dist/index.html"
 BASE_URL = "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
+HISTORY_START = date(2021, 1, 1)
+BACKFILL_DAYS = 366
 SERIES = (
     ("TP.DK.USD.A.YTL", 190),
     ("TP.APIFON3", 190),
@@ -37,25 +39,49 @@ def fetch_series(code, since, today, key):
         if raw is None or raw == "":
             continue
         day = datetime.strptime(row["Tarih"], "%d-%m-%Y").date()
+        if not since <= day <= today:
+            continue
         value = float(raw)
-        if not math.isfinite(value) or not since <= day <= today:
+        if not math.isfinite(value):
             raise ValueError(f"Geçersiz gözlem: {code}")
         observations[day.isoformat()] = value
-    if len(observations) < 2:
-        raise ValueError(f"Yetersiz gözlem: {code}")
     return sorted(observations.items())
 
 
 def refresh(previous, key, now):
     today = now.date()
+    history_start = HISTORY_START.isoformat()
+    needs_backfill = previous.get("history_start") != history_start
     fresh = {}
     for code, days in SERIES:
-        points = fetch_series(code, today - timedelta(days=days), today, key)
         prior = previous["series"].get(code, [])
+        recent_start = today - timedelta(days=days)
+        if prior:
+            recent_start = min(recent_start, date.fromisoformat(prior[-1][0]))
+        points = fetch_series(code, recent_start, today, key)
+        if len(points) < 2:
+            raise ValueError(f"Yetersiz gözlem: {code}")
         if prior and points[-1][0] < prior[-1][0]:
             raise ValueError(f"Son gözlem tarihi geriye gitti: {code}")
-        fresh[code] = points
-    return {"source": "api", "checked": now.isoformat(timespec="seconds"), "series": fresh}
+
+        observations = dict(prior)
+        if needs_backfill or not prior:
+            start = HISTORY_START
+            while start < recent_start:
+                end = min(start + timedelta(days=BACKFILL_DAYS - 1), recent_start - timedelta(days=1))
+                older = fetch_series(code, start, end, key)
+                if not older and (end - start).days >= 31:
+                    raise ValueError(f"Geçmiş gözlemler eksik: {code} ({start}–{end})")
+                observations.update(older)
+                start = end + timedelta(days=1)
+        observations.update(points)
+        fresh[code] = sorted(observations.items())
+    return {
+        "source": "api",
+        "checked": now.isoformat(timespec="seconds"),
+        "history_start": history_start,
+        "series": fresh,
+    }
 
 
 def save(snapshot):
